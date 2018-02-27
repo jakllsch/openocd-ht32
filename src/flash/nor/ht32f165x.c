@@ -30,7 +30,12 @@
 #define FMC_COMMIT          (0xA << 1)
 #define FMC_FINISHED        (0xE << 1)
 
-#define FLASH_ERASE_TIMEOUT 10000
+/* HT32F1655,HT32F1656 tPROG max = 40µs */
+#define FLASH_PROGRAM_TIMEOUT 100
+/* HT32F1655,HT32F1656 tERASE max = 40ms */
+#define FLASH_ERASE_TIMEOUT 1000
+/* HT32F1655,HT32F1656 tMERASE max = 40ms */
+#define FLASH_MERASE_TIMEOUT 1000
 
 #define OPT_BYTE            0x1FF00000
 
@@ -173,7 +178,7 @@ static int ht32f165x_write(struct flash_bank *bank, const uint8_t *buffer,
             return retval;
 
         // wait
-        retval = ht32f165x_wait_status_busy(bank, FLASH_ERASE_TIMEOUT);
+        retval = ht32f165x_wait_status_busy(bank, FLASH_PROGRAM_TIMEOUT);
         if (retval != ERROR_OK)
             return retval;
         addr += 4;
@@ -270,7 +275,7 @@ static int ht32f165x_mass_erase(struct flash_bank *bank)
     if (retval != ERROR_OK)
         return retval;
 
-    retval = ht32f165x_wait_status_busy(bank, FLASH_ERASE_TIMEOUT);
+    retval = ht32f165x_wait_status_busy(bank, FLASH_MERASE_TIMEOUT);
     if (retval != ERROR_OK)
         return retval;
 
