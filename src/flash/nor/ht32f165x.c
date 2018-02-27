@@ -30,7 +30,7 @@
 #define FMC_COMMIT          (0xA << 1)
 #define FMC_FINISHED        (0xE << 1)
 
-#define FLASH_ERASE_TIMEOUT 1000
+#define FLASH_ERASE_TIMEOUT 10000
 
 #define OPT_BYTE            0x1FF00000
 
@@ -80,7 +80,7 @@ static int ht32f165x_wait_status_busy(struct flash_bank *bank, int timeout)
             LOG_ERROR("Timed out waiting for flash: 0x%04x", status);
             return ERROR_FAIL;
         }
-        alive_sleep(10);
+        alive_sleep(1);
     }
 
     return retval;
