@@ -308,6 +308,14 @@ struct command_context *current_command_context(Jim_Interp *interp);
  */
 struct command_context *command_init(const char *startup_tcl, Jim_Interp *interp);
 /**
+ * Shutdown a command context.
+ *
+ * Free the command context and the associated Jim interpreter.
+ *
+ * @param context The command_context that will be destroyed.
+ */
+void command_exit(struct command_context *context);
+/**
  * Creates a copy of an existing command context.  This does not create
  * a deep copy of the command list, so modifications in one context will
  * affect all shared contexts.  The caller must track reference counting
@@ -357,9 +365,12 @@ DECLARE_PARSE_WRAPPER(_u16, uint16_t);
 DECLARE_PARSE_WRAPPER(_u8, uint8_t);
 
 DECLARE_PARSE_WRAPPER(_int, int);
+DECLARE_PARSE_WRAPPER(_s64, int64_t);
 DECLARE_PARSE_WRAPPER(_s32, int32_t);
 DECLARE_PARSE_WRAPPER(_s16, int16_t);
 DECLARE_PARSE_WRAPPER(_s8, int8_t);
+
+DECLARE_PARSE_WRAPPER(_target_addr, target_addr_t);
 
 /**
  * @brief parses the string @a in into @a out as a @a type, or prints
@@ -381,6 +392,9 @@ DECLARE_PARSE_WRAPPER(_s8, int8_t);
 			return retval_macro_tmp; \
 		} \
 	} while (0)
+
+#define COMMAND_PARSE_ADDRESS(in, out) \
+	COMMAND_PARSE_NUMBER(target_addr, in, out)
 
 /**
  * Parse the string @c as a binary parameter, storing the boolean value

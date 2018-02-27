@@ -78,6 +78,7 @@ DRIVERFILES += %D%/jtag_vpi.c
 endif
 if USB_BLASTER_DRIVER
 %C%_libocdjtagdrivers_la_LIBADD += %D%/usb_blaster/libocdusbblaster.la
+include %D%/usb_blaster/Makefile.am
 endif
 if AMTJTAGACCEL
 DRIVERFILES += %D%/amt_jtagaccel.c
@@ -143,13 +144,18 @@ endif
 if BCM2835GPIO
 DRIVERFILES += %D%/bcm2835gpio.c
 endif
-
 if OPENJTAG
 DRIVERFILES += %D%/openjtag.c
 endif
-
 if CMSIS_DAP
 DRIVERFILES += %D%/cmsis_dap_usb.c
+endif
+if IMX_GPIO
+DRIVERFILES += %D%/imx_gpio.c
+endif
+
+if KITPROG
+DRIVERFILES += %D%/kitprog.c
 endif
 
 DRIVERHEADERS = \
@@ -171,4 +177,3 @@ DRIVERHEADERS = \
 	%D%/versaloon/versaloon_include.h \
 	%D%/versaloon/versaloon_internal.h
 
-include %D%/usb_blaster/Makefile.am

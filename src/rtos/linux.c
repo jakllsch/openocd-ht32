@@ -105,11 +105,11 @@ static int linux_os_dummy_update(struct rtos *rtos)
 	return 0;
 }
 
-static int linux_compute_virt2phys(struct target *target, uint32_t address)
+static int linux_compute_virt2phys(struct target *target, target_addr_t address)
 {
 	struct linux_os *linux_os = (struct linux_os *)
 		target->rtos->rtos_specific_params;
-	uint32_t pa = 0;
+	target_addr_t pa = 0;
 	int retval = target->type->virt2phys(target, address, &pa);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Cannot compute linux virt2phys translation");
@@ -309,10 +309,10 @@ static int linux_os_thread_reg_list(struct rtos *rtos,
 	return ERROR_OK;
 }
 
-static int linux_os_detect(struct target *target)
+static bool linux_os_detect(struct target *target)
 {
 	LOG_INFO("should no be called");
-	return 0;
+	return false;
 }
 
 static int linux_os_smp_init(struct target *target);

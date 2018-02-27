@@ -59,7 +59,7 @@
 
 /* forward declarations */
 static int xscale_resume(struct target *, int current,
-	uint32_t address, int handle_breakpoints, int debug_execution);
+	target_addr_t address, int handle_breakpoints, int debug_execution);
 static int xscale_debug_entry(struct target *);
 static int xscale_restore_banked(struct target *);
 static int xscale_get_reg(struct reg *reg);
@@ -404,8 +404,7 @@ static int xscale_read_tx(struct target *target, int consume)
 		}
 
 		gettimeofday(&now, NULL);
-		if ((now.tv_sec > timeout.tv_sec) ||
-			((now.tv_sec == timeout.tv_sec) && (now.tv_usec > timeout.tv_usec))) {
+		if (timeval_compare(&now, &timeout) > 0) {
 			LOG_ERROR("time out reading TX register");
 			return ERROR_TARGET_TIMEOUT;
 		}
@@ -1120,7 +1119,7 @@ static void xscale_free_trace_data(struct xscale_common *xscale)
 }
 
 static int xscale_resume(struct target *target, int current,
-	uint32_t address, int handle_breakpoints, int debug_execution)
+	target_addr_t address, int handle_breakpoints, int debug_execution)
 {
 	struct xscale_common *xscale = target_to_xscale(target);
 	struct arm *arm = &xscale->arm;
@@ -1165,7 +1164,8 @@ static int xscale_resume(struct target *target, int current,
 			enum trace_mode saved_trace_mode;
 
 			/* there's a breakpoint at the current PC, we have to step over it */
-			LOG_DEBUG("unset breakpoint at 0x%8.8" PRIx32 "", breakpoint->address);
+			LOG_DEBUG("unset breakpoint at " TARGET_ADDR_FMT "",
+				breakpoint->address);
 			xscale_unset_breakpoint(target, breakpoint);
 
 			/* calculate PC of next instruction */
@@ -1222,7 +1222,8 @@ static int xscale_resume(struct target *target, int current,
 			LOG_DEBUG("disable single-step");
 			xscale_disable_single_step(target);
 
-			LOG_DEBUG("set breakpoint at 0x%8.8" PRIx32 "", breakpoint->address);
+			LOG_DEBUG("set breakpoint at " TARGET_ADDR_FMT "",
+				breakpoint->address);
 			xscale_set_breakpoint(target, breakpoint);
 		}
 	}
@@ -1384,7 +1385,7 @@ static int xscale_step_inner(struct target *target, int current,
 }
 
 static int xscale_step(struct target *target, int current,
-	uint32_t address, int handle_breakpoints)
+	target_addr_t address, int handle_breakpoints)
 {
 	struct arm *arm = target_to_arm(target);
 	struct breakpoint *breakpoint = NULL;
@@ -1778,7 +1779,7 @@ dirty:
 	return ERROR_OK;
 }
 
-static int xscale_read_memory(struct target *target, uint32_t address,
+static int xscale_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	struct xscale_common *xscale = target_to_xscale(target);
@@ -1786,7 +1787,7 @@ static int xscale_read_memory(struct target *target, uint32_t address,
 	uint32_t i;
 	int retval;
 
-	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32,
+	LOG_DEBUG("address: " TARGET_ADDR_FMT ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32,
 		address,
 		size,
 		count);
@@ -1864,7 +1865,7 @@ static int xscale_read_memory(struct target *target, uint32_t address,
 	return ERROR_OK;
 }
 
-static int xscale_read_phys_memory(struct target *target, uint32_t address,
+static int xscale_read_phys_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	struct xscale_common *xscale = target_to_xscale(target);
@@ -1879,13 +1880,13 @@ static int xscale_read_phys_memory(struct target *target, uint32_t address,
 	return ERROR_FAIL;
 }
 
-static int xscale_write_memory(struct target *target, uint32_t address,
+static int xscale_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	struct xscale_common *xscale = target_to_xscale(target);
 	int retval;
 
-	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32,
+	LOG_DEBUG("address: " TARGET_ADDR_FMT ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32,
 		address,
 		size,
 		count);
@@ -1963,7 +1964,7 @@ static int xscale_write_memory(struct target *target, uint32_t address,
 	return ERROR_OK;
 }
 
-static int xscale_write_phys_memory(struct target *target, uint32_t address,
+static int xscale_write_phys_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	struct xscale_common *xscale = target_to_xscale(target);
@@ -3093,7 +3094,7 @@ COMMAND_HANDLER(xscale_handle_cache_info_command)
 }
 
 static int xscale_virt2phys(struct target *target,
-	uint32_t virtual, uint32_t *physical)
+	target_addr_t virtual, target_addr_t *physical)
 {
 	struct xscale_common *xscale = target_to_xscale(target);
 	uint32_t cb;

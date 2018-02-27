@@ -50,10 +50,17 @@ int flash_driver_erase(struct flash_bank *bank, int first, int last)
 int flash_driver_protect(struct flash_bank *bank, int set, int first, int last)
 {
 	int retval;
+	int num_blocks;
+
+	if (bank->num_prot_blocks)
+		num_blocks = bank->num_prot_blocks;
+	else
+		num_blocks = bank->num_sectors;
+
 
 	/* callers may not supply illegal parameters ... */
-	if (first < 0 || first > last || last >= bank->num_sectors) {
-		LOG_ERROR("illegal sector range");
+	if (first < 0 || first > last || last >= num_blocks) {
+		LOG_ERROR("illegal protection block range");
 		return ERROR_FAIL;
 	}
 
@@ -69,11 +76,11 @@ int flash_driver_protect(struct flash_bank *bank, int set, int first, int last)
 	 * the target could have reset, power cycled, been hot plugged,
 	 * the application could have run, etc.
 	 *
-	 * Drivers only receive valid sector range.
+	 * Drivers only receive valid protection block range.
 	 */
 	retval = bank->driver->protect(bank, set, first, last);
 	if (retval != ERROR_OK)
-		LOG_ERROR("failed setting protection for areas %d to %d", first, last);
+		LOG_ERROR("failed setting protection for blocks %d to %d", first, last);
 
 	return retval;
 }
@@ -594,7 +601,7 @@ int flash_write_unlock(struct target *target, struct image *image,
 		uint32_t buffer_size;
 		uint8_t *buffer;
 		int section_last;
-		uint32_t run_address = sections[section]->base_address + section_offset;
+		target_addr_t run_address = sections[section]->base_address + section_offset;
 		uint32_t run_size = sections[section]->size - section_offset;
 		int pad_bytes = 0;
 
@@ -610,7 +617,7 @@ int flash_write_unlock(struct target *target, struct image *image,
 		if (retval != ERROR_OK)
 			goto done;
 		if (c == NULL) {
-			LOG_WARNING("no flash bank found for address %" PRIx32, run_address);
+			LOG_WARNING("no flash bank found for address " TARGET_ADDR_FMT, run_address);
 			section++;	/* and skip it */
 			section_offset = 0;
 			continue;
@@ -645,7 +652,18 @@ int flash_write_unlock(struct target *target, struct image *image,
 			/* if we have multiple sections within our image,
 			 * flash programming could fail due to alignment issues
 			 * attempt to rebuild a consecutive buffer for the flash loader */
-			pad_bytes = (sections[section_last + 1]->base_address) - (run_address + run_size);
+			target_addr_t run_next_addr = run_address + run_size;
+			if (sections[section_last + 1]->base_address < run_next_addr) {
+				LOG_ERROR("Section at " TARGET_ADDR_FMT
+					" overlaps section ending at " TARGET_ADDR_FMT,
+					sections[section_last + 1]->base_address,
+					run_next_addr);
+				LOG_ERROR("Flash write aborted.");
+				retval = ERROR_FAIL;
+				goto done;
+			}
+
+			pad_bytes = sections[section_last + 1]->base_address - run_next_addr;
 			padding[section_last] = pad_bytes;
 			run_size += sections[++section_last]->size;
 			run_size += pad_bytes;

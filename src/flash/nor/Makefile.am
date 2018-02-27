@@ -15,6 +15,7 @@ NOR_DRIVERS = \
 	%D%/at91samd.c \
 	%D%/at91sam3.c \
 	%D%/at91sam7.c \
+	%D%/ath79.c \
 	%D%/atsamv.c \
 	%D%/avrf.c \
 	%D%/cfi.c \
@@ -36,11 +37,12 @@ NOR_DRIVERS = \
 	%D%/mrvlqspi.c \
 	%D%/niietcm4.c \
 	%D%/non_cfi.c \
-	%D%/nrf51.c \
+	%D%/nrf5.c \
 	%D%/numicro.c \
 	%D%/ocl.c \
 	%D%/pic32mx.c \
 	%D%/psoc4.c \
+	%D%/psoc6.c \
 	%D%/sim3x.c \
 	%D%/spi.c \
 	%D%/stmsmi.c \
@@ -49,11 +51,13 @@ NOR_DRIVERS = \
 	%D%/stm32f2x.c \
 	%D%/stm32lx.c \
 	%D%/stm32l4x.c \
+	%D%/stm32h7x.c \
 	%D%/str7x.c \
 	%D%/str9x.c \
 	%D%/str9xpec.c \
 	%D%/tms470.c \
 	%D%/virtual.c \
+	%D%/xcf.c \
 	%D%/xmc1xxx.c \
 	%D%/xmc4xxx.c
 

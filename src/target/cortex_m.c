@@ -168,11 +168,7 @@ static int cortex_m_single_step_core(struct target *target)
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct armv7m_common *armv7m = &cortex_m->armv7m;
-	uint32_t dhcsr_save;
 	int retval;
-
-	/* backup dhcsr reg */
-	dhcsr_save = cortex_m->dcb_dhcsr;
 
 	/* Mask interrupts before clearing halt, if done already.  This avoids
 	 * Erratum 377497 (fixed in r1p0) where setting MASKINTS while clearing
@@ -191,7 +187,6 @@ static int cortex_m_single_step_core(struct target *target)
 	LOG_DEBUG(" ");
 
 	/* restore dhcsr reg */
-	cortex_m->dcb_dhcsr = dhcsr_save;
 	cortex_m_clear_halt(target);
 
 	return ERROR_OK;
@@ -242,7 +237,7 @@ static int cortex_m_endreset_event(struct target *target)
 	if (retval != ERROR_OK)
 		return retval;
 	if (!(cortex_m->dcb_dhcsr & C_DEBUGEN)) {
-		retval = mem_ap_write_u32(armv7m->debug_ap, DCB_DHCSR, DBGKEY | C_DEBUGEN);
+		retval = cortex_m_write_debug_halt_mask(target, 0, C_HALT | C_STEP | C_MASKINTS);
 		if (retval != ERROR_OK)
 			return retval;
 	}
@@ -682,7 +677,7 @@ void cortex_m_enable_breakpoints(struct target *target)
 }
 
 static int cortex_m_resume(struct target *target, int current,
-	uint32_t address, int handle_breakpoints, int debug_execution)
+	target_addr_t address, int handle_breakpoints, int debug_execution)
 {
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 	struct breakpoint *breakpoint = NULL;
@@ -750,7 +745,7 @@ static int cortex_m_resume(struct target *target, int current,
 		/* Single step past breakpoint at current address */
 		breakpoint = breakpoint_find(target, resume_pc);
 		if (breakpoint) {
-			LOG_DEBUG("unset breakpoint at 0x%8.8" PRIx32 " (ID: %" PRIu32 ")",
+			LOG_DEBUG("unset breakpoint at " TARGET_ADDR_FMT " (ID: %" PRIu32 ")",
 				breakpoint->address,
 				breakpoint->unique_id);
 			cortex_m_unset_breakpoint(target, breakpoint);
@@ -782,7 +777,7 @@ static int cortex_m_resume(struct target *target, int current,
 
 /* int irqstepcount = 0; */
 static int cortex_m_step(struct target *target, int current,
-	uint32_t address, int handle_breakpoints)
+	target_addr_t address, int handle_breakpoints)
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct armv7m_common *armv7m = &cortex_m->armv7m;
@@ -1005,12 +1000,12 @@ static int cortex_m_assert_reset(struct target *target)
 	/* Store important errors instead of failing and proceed to reset assert */
 
 	if (retval != ERROR_OK || !(cortex_m->dcb_dhcsr & C_DEBUGEN))
-		retval = mem_ap_write_u32(armv7m->debug_ap, DCB_DHCSR, DBGKEY | C_DEBUGEN);
+		retval = cortex_m_write_debug_halt_mask(target, 0, C_HALT | C_STEP | C_MASKINTS);
 
 	/* If the processor is sleeping in a WFI or WFE instruction, the
 	 * C_HALT bit must be asserted to regain control */
 	if (retval == ERROR_OK && (cortex_m->dcb_dhcsr & S_SLEEP))
-		retval = mem_ap_write_u32(armv7m->debug_ap, DCB_DHCSR, DBGKEY | C_HALT | C_DEBUGEN);
+		retval = cortex_m_write_debug_halt_mask(target, C_HALT, 0);
 
 	mem_ap_write_u32(armv7m->debug_ap, DCB_DCRDR, 0);
 	/* Ignore less important errors */
@@ -1018,8 +1013,7 @@ static int cortex_m_assert_reset(struct target *target)
 	if (!target->reset_halt) {
 		/* Set/Clear C_MASKINTS in a separate operation */
 		if (cortex_m->dcb_dhcsr & C_MASKINTS)
-			mem_ap_write_atomic_u32(armv7m->debug_ap, DCB_DHCSR,
-					DBGKEY | C_DEBUGEN | C_HALT);
+			cortex_m_write_debug_halt_mask(target, 0, C_MASKINTS);
 
 		/* clear any debug flags before resuming */
 		cortex_m_clear_halt(target);
@@ -1198,7 +1192,7 @@ int cortex_m_set_breakpoint(struct target *target, struct breakpoint *breakpoint
 		breakpoint->set = true;
 	}
 
-	LOG_DEBUG("BPID: %" PRIu32 ", Type: %d, Address: 0x%08" PRIx32 " Length: %d (set=%d)",
+	LOG_DEBUG("BPID: %" PRIu32 ", Type: %d, Address: " TARGET_ADDR_FMT " Length: %d (set=%d)",
 		breakpoint->unique_id,
 		(int)(breakpoint->type),
 		breakpoint->address,
@@ -1219,7 +1213,7 @@ int cortex_m_unset_breakpoint(struct target *target, struct breakpoint *breakpoi
 		return ERROR_OK;
 	}
 
-	LOG_DEBUG("BPID: %" PRIu32 ", Type: %d, Address: 0x%08" PRIx32 " Length: %d (set=%d)",
+	LOG_DEBUG("BPID: %" PRIu32 ", Type: %d, Address: " TARGET_ADDR_FMT " Length: %d (set=%d)",
 		breakpoint->unique_id,
 		(int)(breakpoint->type),
 		breakpoint->address,
@@ -1664,7 +1658,7 @@ static int cortex_m_store_core_reg_u32(struct target *target,
 	return ERROR_OK;
 }
 
-static int cortex_m_read_memory(struct target *target, uint32_t address,
+static int cortex_m_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	struct armv7m_common *armv7m = target_to_armv7m(target);
@@ -1678,7 +1672,7 @@ static int cortex_m_read_memory(struct target *target, uint32_t address,
 	return mem_ap_read_buf(armv7m->debug_ap, buffer, size, count, address);
 }
 
-static int cortex_m_write_memory(struct target *target, uint32_t address,
+static int cortex_m_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	struct armv7m_common *armv7m = target_to_armv7m(target);
@@ -1712,6 +1706,97 @@ void cortex_m_deinit_target(struct target *target)
 	free(target->private_config);
 	free(cortex_m);
 }
+
+int cortex_m_profiling(struct target *target, uint32_t *samples,
+			      uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
+{
+	struct timeval timeout, now;
+	struct armv7m_common *armv7m = target_to_armv7m(target);
+	uint32_t reg_value;
+	bool use_pcsr = false;
+	int retval = ERROR_OK;
+	struct reg *reg;
+
+	gettimeofday(&timeout, NULL);
+	timeval_add_time(&timeout, seconds, 0);
+
+	retval = target_read_u32(target, DWT_PCSR, &reg_value);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Error while reading PCSR");
+		return retval;
+	}
+
+	if (reg_value != 0) {
+		use_pcsr = true;
+		LOG_INFO("Starting Cortex-M profiling. Sampling DWT_PCSR as fast as we can...");
+	} else {
+		LOG_INFO("Starting profiling. Halting and resuming the"
+			 " target as often as we can...");
+		reg = register_get_by_name(target->reg_cache, "pc", 1);
+	}
+
+	/* Make sure the target is running */
+	target_poll(target);
+	if (target->state == TARGET_HALTED)
+		retval = target_resume(target, 1, 0, 0, 0);
+
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Error while resuming target");
+		return retval;
+	}
+
+	uint32_t sample_count = 0;
+
+	for (;;) {
+		if (use_pcsr) {
+			if (armv7m && armv7m->debug_ap) {
+				uint32_t read_count = max_num_samples - sample_count;
+				if (read_count > 1024)
+					read_count = 1024;
+
+				retval = mem_ap_read_buf_noincr(armv7m->debug_ap,
+							(void *)&samples[sample_count],
+							4, read_count, DWT_PCSR);
+				sample_count += read_count;
+			} else {
+				target_read_u32(target, DWT_PCSR, &samples[sample_count++]);
+			}
+		} else {
+			target_poll(target);
+			if (target->state == TARGET_HALTED) {
+				reg_value = buf_get_u32(reg->value, 0, 32);
+				/* current pc, addr = 0, do not handle breakpoints, not debugging */
+				retval = target_resume(target, 1, 0, 0, 0);
+				samples[sample_count++] = reg_value;
+				target_poll(target);
+				alive_sleep(10); /* sleep 10ms, i.e. <100 samples/second. */
+			} else if (target->state == TARGET_RUNNING) {
+				/* We want to quickly sample the PC. */
+				retval = target_halt(target);
+			} else {
+				LOG_INFO("Target not halted or running");
+				retval = ERROR_OK;
+				break;
+			}
+		}
+
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Error while reading %s", use_pcsr ? "PCSR" : "target pc");
+			return retval;
+		}
+
+
+		gettimeofday(&now, NULL);
+		if (sample_count >= max_num_samples || timeval_compare(&now, &timeout) > 0) {
+			LOG_INFO("Profiling completed. %" PRIu32 " samples.", sample_count);
+			break;
+		}
+	}
+
+	*num_samples = sample_count;
+	return retval;
+}
+
 
 /* REVISIT cache valid/dirty bits are unmaintained.  We could set "valid"
  * on r/w if the core is not running, and clear on resume or reset ... or
@@ -2457,4 +2542,6 @@ struct target_type cortexm_target = {
 	.init_target = cortex_m_init_target,
 	.examine = cortex_m_examine,
 	.deinit_target = cortex_m_deinit_target,
+
+	.profiling = cortex_m_profiling,
 };
