@@ -16,12 +16,17 @@
 #define FMC_REG_WRDR        0x04
 #define FMC_REG_OCMR        0x0C
 #define FMC_REG_OPCR        0x10
+#define FMC_REG_OIER        0x14
+#define FMC_REG_OISR        0x18
+#define FMC_REG_PPSR        0x20
+#define FMC_REG_CPSR        0x30
 
 #define FMC_CMD_WORD_PROG   0x4
 #define FMC_CMD_PAGE_ERASE  0x8
 #define FMC_CMD_MASS_ERASE  0xA
 
 #define FMC_OPM_MASK        0x1E
+#define FMC_IDLE            (0x6 << 1)
 #define FMC_COMMIT          (0xA << 1)
 #define FMC_FINISHED        (0xE << 1)
 
