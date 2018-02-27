@@ -34,13 +34,24 @@
 
 #define OPT_BYTE            0x1FF00000
 
+struct ht32_flash_bank {
+    int probed;
+};
+
 // flash bank ht32f165x <base> <size> 0 0 <target#>
 FLASH_BANK_COMMAND_HANDLER(ht32f165x_flash_bank_command)
 {
+    struct ht32_flash_bank *ht32_info;
+
     if (CMD_ARGC < 6)
         return ERROR_COMMAND_SYNTAX_ERROR;
 
-    bank->driver_priv = NULL;
+    ht32_info = malloc(sizeof(*ht32_info));
+    if (ht32_info == NULL)
+        return ERROR_FAIL;
+
+    bank->driver_priv = ht32_info;
+    ht32_info->probed = 0;
 
     return ERROR_OK;
 }
@@ -174,6 +185,7 @@ static int ht32f165x_write(struct flash_bank *bank, const uint8_t *buffer,
 
 static int ht32f165x_probe(struct flash_bank *bank)
 {
+    struct ht32_flash_bank * const ht32_info = bank->driver_priv;
     int page_size = 1024;
     int num_pages = bank->size / page_size;
 
@@ -195,11 +207,18 @@ static int ht32f165x_probe(struct flash_bank *bank)
         bank->sectors[i].is_protected = 1;
     }
 
+    ht32_info->probed = 1;
+
     return ERROR_OK;
 }
 
 static int ht32f165x_auto_probe(struct flash_bank *bank)
 {
+    struct ht32_flash_bank * const ht32_info = bank->driver_priv;
+
+    if (ht32_info->probed)
+          return ERROR_OK;
+
     return ht32f165x_probe(bank);
 }
 
