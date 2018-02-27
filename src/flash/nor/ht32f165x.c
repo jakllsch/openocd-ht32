@@ -174,8 +174,10 @@ static int ht32f165x_probe(struct flash_bank *bank)
 
     LOG_INFO("ht32f165x probe: %d pages, 0x%x bytes, 0x%x total", num_pages, page_size, bank->size);
 
-    if(bank->sectors)
+    if(bank->sectors) {
         free(bank->sectors);
+        bank->sectors = NULL;
+    }
 
     bank->base = 0x0;
     bank->num_sectors = num_pages;
