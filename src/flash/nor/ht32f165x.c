@@ -20,6 +20,9 @@
 #define FMC_REG_OISR        0x18
 #define FMC_REG_PPSR        0x20
 #define FMC_REG_CPSR        0x30
+#define FMC_REG_MDID        0x180
+#define FMC_REG_PNSR        0x184
+#define FMC_REG_PSSR        0x188
 
 #define FMC_CMD_WORD_PROG   0x4
 #define FMC_CMD_PAGE_ERASE  0x8
@@ -191,8 +194,16 @@ static int ht32f165x_write(struct flash_bank *bank, const uint8_t *buffer,
 static int ht32f165x_probe(struct flash_bank *bank)
 {
     struct ht32_flash_bank * const ht32_info = bank->driver_priv;
+    struct target * const target = bank->target;
     int page_size = 1024;
     int num_pages = bank->size / page_size;
+    uint32_t mdid, pnsr, pssr;
+
+    target_read_u32(target, FMC_REG_BASE + FMC_REG_MDID, &mdid);
+    target_read_u32(target, FMC_REG_BASE + FMC_REG_PNSR, &pnsr);
+    target_read_u32(target, FMC_REG_BASE + FMC_REG_PSSR, &pssr);
+
+    LOG_INFO("ht32f165x probe: MDID 0x%08x, PNSR 0x%08x, PSSR 0x%08x", mdid, pnsr, pssr);
 
     LOG_INFO("ht32f165x probe: %d pages, 0x%x bytes, 0x%x total", num_pages, page_size, bank->size);
 
