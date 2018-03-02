@@ -254,7 +254,7 @@ static int ht32f165x_protect_check(struct flash_bank *bank)
 
     // Set page protection
     for(int i = 0 ; i < 128; ++i){
-        int bit = (ob_pp[i / 32] << (i % 32)) & 1;
+        int bit = (ob_pp[i / 32] >> (i % 32)) & 1;
         bank->sectors[2*i].is_protected = bit ? 0 : 1;
         bank->sectors[(2*i)+1].is_protected = bit ? 0 : 1;
     }
